@@ -39,6 +39,7 @@ class PackageCard extends View
           @div class: 'btn-toolbar', =>
             @div outlet: 'updateButtonGroup', class: 'btn-group', =>
               @button type: 'button', class: 'btn btn-info icon icon-cloud-download install-button', outlet: 'updateButton', 'Update'
+              @button type: 'button', class: 'btn btn-info icon icon-diff view-update-diff-button', outlet: 'compareUpdateButton', 'Compare'
             @div outlet: 'installAlternativeButtonGroup', class: 'btn-group', =>
               @button type: 'button', class: 'btn btn-info icon icon-cloud-download install-button', outlet: 'installAlternativeButton', 'Install Alternative'
             @div outlet: 'installButtonGroup', class: 'btn-group', =>
@@ -128,6 +129,27 @@ class PackageCard extends View
           """
           console.error("No available version compatible with the installed Atom version: #{atom.getVersion()}")
 
+  openCompareUrl: =>
+    if repoUrl = @packageManager.getRepositoryUrl(@pack)
+      shell.openExternal("#{repoUrl}/compare/v#{@versionValue.text()}...v#{@newVersion}")
+
+  loadPackageData: (next) =>
+    # If the package metadata in `@pack` isn't complete, hit the network.
+    unless @pack.metadata? and @pack.metadata.owner
+      # @showLoadingMessage()
+      @packageManager.getClient().package @pack.name, (err, packageData) =>
+        if err or not(packageData?.name?)
+          # @hideLoadingMessage()
+          # @showErrorMessage()
+        else
+          @pack = packageData
+          # TODO: this should match Package.loadMetadata from core, but this is
+          # an acceptable hacky workaround
+          @pack.metadata = _.extend(@pack.metadata ? {}, @pack)
+          next()
+    else
+      next()
+
   handleButtonEvents: (options) ->
     if options?.onSettingsView
       @settingsButton.remove()
@@ -153,6 +175,10 @@ class PackageCard extends View
     @updateButton.on 'click', (event) =>
       event.stopPropagation()
       @update()
+
+    @compareUpdateButton.on 'click', (event) =>
+      event.stopPropagation()
+      @loadPackageData(@openCompareUrl)
 
     @packageName.on 'click', (event) =>
       event.stopPropagation()
